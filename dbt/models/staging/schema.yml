@@ -1,0 +1,67 @@
+version: 2
+
+sources:
+  - name: raw
+    database: BANKING_DW
+    schema: RAW_LAYER
+    description: "Raw UPI transactions loaded via COPY INTO"
+    tables:
+      - name: raw_upi_transactions
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
+        description: "Raw landing UPI transactions"
+        columns:
+          - name: txn_id
+            description: "Unique transaction ID (UUID)"
+            tests: [not_null, unique]
+          - name: sender_vpa
+            description: "UPI Virtual Payment Address of sender"
+          - name: receiver_vpa
+            description: "UPI Virtual Payment Address of receiver"
+          - name: amount
+            description: "Transaction amount in INR"
+          - name: status
+            description: "Transaction status"
+            tests:
+              - accepted_values:
+                  values: ['SUCCESS', 'FAILED', 'PENDING', 'REVERSED']
+          - name: txn_timestamp
+            description: "Exact timestamp of the transaction"
+            tests: [not_null]
+
+models:
+  - name: stg_upi_transactions
+    description: "Staging layer: normalised UPI transactions ready for downstream models"
+    columns:
+      - name: txn_id
+        description: "Unique transaction ID — primary key of this layer"
+        tests: [not_null, unique]
+      - name: amount_inr
+        description: "Transaction amount in INR (null-coalesced to 0.00)"
+        tests:
+          - not_null
+      - name: status
+        description: "Normalised transaction status"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['SUCCESS', 'FAILED', 'PENDING', 'REVERSED', 'UNKNOWN']
+      - name: sender_vpa
+        description: "Lowercased UPI VPA of the sender"
+        tests: [not_null]
+      - name: receiver_vpa
+        description: "Lowercased UPI VPA of the receiver"
+        tests: [not_null]
+      - name: txn_date
+        description: "Date of transaction (coerced from txn_timestamp if null)"
+        tests: [not_null]
+      - name: sender_bank
+        description: "Bank handle extracted from sender VPA (e.g. okaxis)"
+        tests: [not_null]
+      - name: receiver_bank
+        description: "Bank handle extracted from receiver VPA"
+        tests: [not_null]
+      - name: _dbt_inserted_at
+        description: "Timestamp when dbt populated this row"

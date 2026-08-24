@@ -1,0 +1,20 @@
+##############################################################################
+#  Banking UPI Pipeline — Custom Airflow Image
+#  Base: apache/airflow:2.9.3-python3.11
+#  Adds: pandas, pyarrow, FastAPI, and other pipeline dependencies
+##############################################################################
+FROM apache/airflow:2.9.3-python3.11
+
+
+# ── Python dependencies ────────────────────────────────────────────────────────
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ── Copy project source ────────────────────────────────────────────────────────
+COPY --chown=airflow:root . /opt/banking-upi-pipeline
+
+# ── Set PYTHONPATH so all project imports resolve ──────────────────────────────
+ENV PYTHONPATH="/opt/banking-upi-pipeline:${PYTHONPATH}"
+ENV PIPELINE_ROOT="/opt/banking-upi-pipeline"
+
+WORKDIR /opt/banking-upi-pipeline

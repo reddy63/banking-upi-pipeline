@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: fct_fraud_signals
+    description: >
+      Fraud signal fact table. One row per transaction per triggered rule.
+      A single transaction can appear multiple times (one per signal fired).
+    columns:
+      - name: txn_id
+        description: "Transaction ID that triggered the signal"
+        tests: [not_null]
+      - name: signal_type
+        description: "Name of the fraud rule that fired"
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - HIGH_VALUE_OFF_HOURS
+                - RAPID_REPEAT_SENDER
+                - ALWAYS_FAILED_SENDER
+                - HIGH_VALUE_REVERSAL
+                - CROSS_BANK_HIGH_VALUE
+      - name: signal_score
+        description: "Risk score weight for this signal (0–1)"
+      - name: signal_reason
+        description: "Human-readable explanation for the signal"
+        tests: [not_null]
+      - name: sender_vpa
+        description: "Sender VPA involved in the flagged transaction"
+        tests: [not_null]
+      - name: txn_date
+        description: "Date of the flagged transaction"
+        tests: [not_null]
+      - name: amount_inr
+        description: "Amount of the flagged transaction"
+
+  - name: fct_fraud_summary
+    description: >
+      Daily fraud KPI summary. One row per (txn_date × signal_type).
+      Aggregates flagged counts, volumes, and rates for monitoring dashboards.
+    columns:
+      - name: txn_date
+        description: "Summary date"
+        tests: [not_null]
+      - name: signal_type
+        description: "Fraud signal rule name"
+        tests: [not_null]
+      - name: flagged_txn_count
+        description: "Number of transactions flagged by this rule on this date"
+        tests:
+          - assert_positive:
+              column_name: flagged_txn_count
+      - name: total_flagged_amount_inr
+        description: "Total INR at risk from flagged transactions"
+      - name: signal_rate
+        description: "Fraction of daily transactions that triggered this signal"
+      - name: avg_signal_score
+        description: "Average risk score across all flagged transactions"

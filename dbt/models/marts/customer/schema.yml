@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: >
+      Customer dimension table. One row per unique sender VPA.
+      Contains lifetime aggregates, tier classification, home city, and primary device.
+    columns:
+      - name: sender_vpa
+        description: "UPI VPA — natural key for this dimension"
+        tests: [not_null, unique]
+      - name: primary_bank
+        description: "Most-used bank handle (from VPA suffix)"
+        tests: [not_null]
+      - name: total_txns
+        description: "Lifetime transaction count"
+        tests:
+          - assert_positive:
+              column_name: total_txns
+      - name: total_spend_inr
+        description: "Lifetime total spend in INR"
+      - name: customer_tier
+        description: "BRONZE / SILVER / GOLD / PLATINUM based on total_spend_inr"
+        tests:
+          - accepted_values:
+              values: ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']
+      - name: success_rate
+        description: "Fraction of successful transactions (0–1)"
+      - name: first_txn_date
+        description: "Date of first ever transaction"
+        tests: [not_null]
+      - name: last_txn_date
+        description: "Date of most recent transaction"
+        tests: [not_null]
+
+  - name: fct_customer_activity
+    description: >
+      Customer daily activity fact. One row per sender_vpa per txn_date.
+      Composite unique key: (sender_vpa, txn_date).
+    columns:
+      - name: sender_vpa
+        description: "UPI VPA of customer"
+        tests: [not_null]
+      - name: txn_date
+        description: "Activity date"
+        tests: [not_null]
+      - name: daily_txn_count
+        description: "Number of transactions on this date"
+        tests:
+          - assert_positive:
+              column_name: daily_txn_count
+      - name: daily_total_inr
+        description: "Total spend on this date"
+      - name: daily_success_rate
+        description: "Fraction of successful transactions on this date"
+      - name: daily_risk_score
+        description: "Fraction of suspicious transactions on this date (0–1)"

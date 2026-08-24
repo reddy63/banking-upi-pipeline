@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: fct_transactions
+    description: >
+      Main enriched transaction fact table. One row per transaction (txn_id).
+      Includes customer tier, velocity features, and all fraud-signal flags.
+    columns:
+      - name: txn_id
+        description: "Transaction unique identifier — primary key"
+        tests: [not_null, unique]
+      - name: sender_vpa
+        description: "UPI VPA of sending customer"
+        tests: [not_null]
+      - name: receiver_vpa
+        description: "UPI VPA of receiving party"
+        tests: [not_null]
+      - name: amount_inr
+        description: "Transaction amount in INR"
+        tests:
+          - assert_positive:
+              column_name: amount_inr
+      - name: status
+        description: "Normalised transaction status"
+        tests:
+          - accepted_values:
+              values: ['SUCCESS', 'FAILED', 'PENDING', 'REVERSED', 'UNKNOWN']
+      - name: txn_date
+        description: "Date of transaction"
+        tests: [not_null]
+      - name: customer_tier
+        description: "Customer tier from dim_customers (BRONZE/SILVER/GOLD/PLATINUM)"
+      - name: is_suspicious
+        description: "True if the transaction triggered any fraud signal rule"
+      - name: txn_size_bucket
+        description: "Categorical bucket for transaction amount"
+        tests:
+          - accepted_values:
+              values: ['MICRO', 'SMALL', 'MEDIUM', 'LARGE', 'HIGH_VALUE']
+
+  - name: fct_daily_summary
+    description: >
+      Aggregated daily KPIs per bank pair, status, and device type.
+      Primary table for time-series dashboards.
+    columns:
+      - name: txn_date
+        description: "Summary date"
+        tests: [not_null]
+      - name: txn_count
+        description: "Total transaction count for this grouping"
+        tests:
+          - assert_positive:
+              column_name: txn_count
+      - name: total_amount_inr
+        description: "Total INR volume transacted"
+      - name: success_rate
+        description: "Fraction of successful transactions (0–1)"
+      - name: failure_rate
+        description: "Fraction of failed transactions (0–1)"
+      - name: risk_rate
+        description: "Fraction of suspicious transactions (0–1)"

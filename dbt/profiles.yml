@@ -1,0 +1,45 @@
+banking_upi:
+  target: prod
+  outputs:
+    # ── Local development (DuckDB — no Snowflake credentials needed) ──────────────
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../local_db/banking_dw.duckdb') }}"
+      threads: 4
+      extensions:
+        - parquet
+        - httpfs
+
+    # ── CI / staging environment (Snowflake) ─────────────────────────────────────
+    ci:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'DATA_ENGINEER') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'BANKING_DW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      schema: dbt_ci
+      threads: 8
+      keepalives_idle: 0
+      connect_retries: 3
+      connect_timeout: 30
+      client_session_keep_alive: true
+      query_tag: banking_upi_dbt_ci
+
+    # ── Production environment (Snowflake) ───────────────────────────────────────
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'DATA_ENGINEER') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'BANKING_DW') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      schema: dbt_prod
+      threads: 16
+      keepalives_idle: 0
+      connect_retries: 5
+      connect_timeout: 60
+      client_session_keep_alive: true
+      query_tag: banking_upi_dbt_prod

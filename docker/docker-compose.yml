@@ -1,0 +1,202 @@
+##############################################################################
+#  Banking UPI Pipeline — Docker Compose
+#
+#  Services:
+#    postgres         — Airflow metadata DB
+#    redis            — Celery broker (for CeleryExecutor)
+#    airflow-webserver
+#    airflow-scheduler
+#    airflow-worker   (Celery)
+#    airflow-init     — DB init + user creation (runs once)
+#    mock-api         — FastAPI mock UPI transaction server
+#
+#  Usage:
+#    docker compose up --build -d
+#    docker compose down -v          # tear down including volumes
+##############################################################################
+
+
+services:
+
+  # ── PostgreSQL (Airflow metadata) ─────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: banking-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  # ── Airflow Init (one-shot) ───────────────────────────────────────────────────
+  airflow-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    image: banking-upi-airflow:latest
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      PIPELINE_ROOT: /opt/banking-upi-pipeline
+      MOCK_API_BASE_URL: http://mock-api:8000
+      MOCK_API_KEY: dev-api-key-123
+      LOG_LEVEL: INFO
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-your_account}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-pipeline_user}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-BANKING_DW}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-RAW_LAYER}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-DATA_ENGINEER}
+    volumes:
+      - ..:/opt/banking-upi-pipeline
+      - ./airflow-logs:/opt/airflow/logs
+      - ./airflow-plugins:/opt/airflow/plugins
+    depends_on:
+      postgres:
+        condition: service_healthy
+    container_name: banking-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@banking.internal
+        echo "Airflow initialized"
+    restart: "no"
+
+  # ── Airflow Webserver ──────────────────────────────────────────────────────────
+  airflow-webserver:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    image: banking-upi-airflow:latest
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      PIPELINE_ROOT: /opt/banking-upi-pipeline
+      MOCK_API_BASE_URL: http://mock-api:8000
+      MOCK_API_KEY: dev-api-key-123
+      LOG_LEVEL: INFO
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-your_account}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-pipeline_user}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-BANKING_DW}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-RAW_LAYER}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-DATA_ENGINEER}
+    volumes:
+      - ..:/opt/banking-upi-pipeline
+      - ./airflow-logs:/opt/airflow/logs
+      - ./airflow-plugins:/opt/airflow/plugins
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    container_name: banking-airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+  # ── Airflow Scheduler ──────────────────────────────────────────────────────────
+  airflow-scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    image: banking-upi-airflow:latest
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      PIPELINE_ROOT: /opt/banking-upi-pipeline
+      MOCK_API_BASE_URL: http://mock-api:8000
+      MOCK_API_KEY: dev-api-key-123
+      LOG_LEVEL: INFO
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-your_account}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-pipeline_user}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-BANKING_DW}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-RAW_LAYER}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-DATA_ENGINEER}
+    volumes:
+      - ..:/opt/banking-upi-pipeline
+      - ./airflow-logs:/opt/airflow/logs
+      - ./airflow-plugins:/opt/airflow/plugins
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    container_name: banking-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+  # ── Mock UPI API Server ────────────────────────────────────────────────────────
+  mock-api:
+    image: python:3.11-slim
+    container_name: banking-mock-api
+    working_dir: /app
+    volumes:
+      - ..:/app
+    command: >
+      bash -c "
+        pip install fastapi uvicorn --quiet &&
+        python data/mock_data_generator.py &&
+        uvicorn data.mock_api_server:app --host 0.0.0.0 --port 8000 --reload
+      "
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  airflow-logs:
+  airflow-plugins:

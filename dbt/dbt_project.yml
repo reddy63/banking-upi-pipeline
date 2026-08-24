@@ -1,0 +1,83 @@
+name: 'banking_upi'
+version: '1.0.0'
+config-version: 2
+
+# Profile used for connections (see profiles.yml)
+profile: 'banking_upi'
+
+# Directory paths
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+docs-paths: ["docs"]
+
+# Target directory for compiled artifacts
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Package dependencies
+packages-install-path: "dbt_packages"
+
+# Model configurations
+models:
+  banking_upi:
+    # Staging models — raw source cleansing
+    staging:
+      +schema: staging
+      +materialized: view
+      +tags: ['staging', 'daily']
+
+    # Intermediate models — enriched / joined
+    intermediate:
+      +schema: intermediate
+      +materialized: ephemeral
+      +tags: ['intermediate']
+
+    # Mart models — business-facing, persisted tables
+    marts:
+      +materialized: table
+      +tags: ['mart', 'daily']
+
+      customer:
+        +schema: mart_customer
+        +tags: ['customer']
+
+      transaction:
+        +schema: mart_transaction
+        +tags: ['transaction']
+
+      fraud:
+        +schema: mart_fraud
+        +tags: ['fraud']
+        +grants:
+          select: ['fraud_analyst_role']
+
+# Global variable defaults
+vars:
+  # Lookback window for incremental fraud checks (days)
+  fraud_lookback_days: 30
+  # Minimum transaction count threshold for customer 360
+  min_customer_txns: 1
+  # High-value threshold (INR)
+  high_value_threshold: 50000
+  # The run date (override with --vars "{'run_date': '2026-08-23'}")
+  run_date: "{{ run_started_at.strftime('%Y-%m-%d') }}"
+
+# Source freshness thresholds
+sources:
+  banking_upi:
+    freshness:
+      warn_after: {count: 12, period: hour}
+      error_after: {count: 24, period: hour}
+
+# Severity levels for tests
+on-run-start:
+  - "{{ log('Starting banking_upi dbt run for ' ~ var('run_date'), info=True) }}"
+
+on-run-end:
+  - "{{ log('Completed banking_upi dbt run', info=True) }}"

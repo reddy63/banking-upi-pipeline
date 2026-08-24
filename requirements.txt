@@ -1,0 +1,29 @@
+# ── Core pipeline dependencies ─────────────────────────────────────────────────
+pandas>=2.1.0
+pyarrow>=14.0.0
+requests>=2.31.0
+urllib3>=2.0.0
+
+
+
+# ── Ingestion / API server ─────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+httpx>=0.26.0
+
+# ── Airflow (core + providers) ────────────────────────────────────────────────
+# Install via: pip install apache-airflow==2.9.3 --constraint https://...
+# Listed separately to avoid resolver conflicts:
+apache-airflow>=2.9.3
+
+# ── dbt ──────────────────────────────────────────────────────────────────────
+dbt-core>=1.8.0
+dbt-duckdb>=1.8.0           # local dev with DuckDB
+dbt-snowflake>=1.8.0        # production Snowflake target
+
+# ── Warehouse ─────────────────────────────────────────────────────────────────
+snowflake-connector-python>=3.6.0
+snowflake-sqlalchemy>=1.5.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0

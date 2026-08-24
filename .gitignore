@@ -1,0 +1,59 @@
+# ── Secrets / Credentials ─────────────────────────────────────────────────────
+.env
+*.key
+*.pem
+*.p12
+secrets/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Testing / Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# ── dbt ───────────────────────────────────────────────────────────────────────
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
+# ── Raw data (generated locally — NOT committed to git) ───────────────────────
+raw/
+data/mock_csv/
+data/mock_api/
+
+# ── Logs & manifests ──────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+docker/airflow-logs/
+docker/airflow-plugins/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+local_db/
+*.parquet
+*.zip
