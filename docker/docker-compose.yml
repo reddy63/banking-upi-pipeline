@@ -49,6 +49,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
       AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/banking-upi-pipeline/dags
       PIPELINE_ROOT: /opt/banking-upi-pipeline
       MOCK_API_BASE_URL: http://mock-api:8000
       MOCK_API_KEY: dev-api-key-123
@@ -97,6 +98,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
       AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/banking-upi-pipeline/dags
       PIPELINE_ROOT: /opt/banking-upi-pipeline
       MOCK_API_BASE_URL: http://mock-api:8000
       MOCK_API_KEY: dev-api-key-123
@@ -143,6 +145,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
       AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/banking-upi-pipeline/dags
       PIPELINE_ROOT: /opt/banking-upi-pipeline
       MOCK_API_BASE_URL: http://mock-api:8000
       MOCK_API_KEY: dev-api-key-123
