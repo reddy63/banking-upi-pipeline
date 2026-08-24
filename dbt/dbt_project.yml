@@ -54,8 +54,8 @@ models:
       fraud:
         +schema: mart_fraud
         +tags: ['fraud']
-        +grants:
-          select: ['fraud_analyst_role']
+        # +grants:
+        #   select: ['fraud_analyst_role']
 
 # Global variable defaults
 vars:

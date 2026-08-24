@@ -55,9 +55,9 @@ class BaseReader(ABC):
         df   = self.validate_schema(df)
 
         # Type coercions for safe Parquet serialization
-        df["amount"]       = pd.to_numeric(df["amount"], errors="coerce")
-        df["txn_timestamp"] = pd.to_datetime(df["txn_timestamp"], errors="coerce")
-        df["ingested_at"]  = pd.to_datetime(df["ingested_at"],  errors="coerce")
+        df["amount"]        = pd.to_numeric(df["amount"], errors="coerce")
+        df["txn_timestamp"] = pd.to_datetime(df["txn_timestamp"], errors="coerce").dt.strftime("%Y-%m-%d %H:%M:%S")
+        df["ingested_at"]   = pd.to_datetime(df["ingested_at"], errors="coerce").dt.strftime("%Y-%m-%d %H:%M:%S")
 
         out_dir  = self.raw_base_path / f"source={self.source_name}" / f"date={date}"
         out_dir.mkdir(parents=True, exist_ok=True)

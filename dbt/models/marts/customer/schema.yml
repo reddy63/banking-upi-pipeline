@@ -6,7 +6,7 @@ models:
       Customer dimension table. One row per unique sender VPA.
       Contains lifetime aggregates, tier classification, home city, and primary device.
     columns:
-      - name: sender_vpa
+      - name: customer_vpa
         description: "UPI VPA — natural key for this dimension"
         tests: [not_null, unique]
       - name: primary_bank

@@ -126,22 +126,28 @@ else
     warn "Step 4/7: Snowflake load SKIPPED"
 fi
 
-# ── Step 5: dbt snapshot ─────────────────────────────────────────────────────────────────────────
+# ── Step 5: dbt run (staging & intermediate) ───────────────────────────────────────
 DBT_TARGET="${DBT_TARGET:-prod}"
-step "Step 5/7: dbt snapshot (target=$DBT_TARGET)"
+step "Step 5/8: dbt run (staging/intermediate) (target=$DBT_TARGET)"
 cd dbt
+dbt run --exclude models/marts --target "$DBT_TARGET" --vars "{run_date: '$DATE'}" \
+    && success "dbt run (staging/intermediate) complete" \
+    || fail "dbt run (staging/intermediate) failed"
+
+# ── Step 6: dbt snapshot ─────────────────────────────────────────────────────────────────────────
+step "Step 6/8: dbt snapshot (target=$DBT_TARGET)"
 dbt snapshot --target "$DBT_TARGET" \
     && success "dbt snapshot complete" \
     || fail "dbt snapshot failed"
 
-# ── Step 6: dbt run ──────────────────────────────────────────────────────────────────────────────
-step "Step 6/7: dbt run (target=$DBT_TARGET)"
-dbt run --target "$DBT_TARGET" --vars "{run_date: '$DATE'}" \
-    && success "dbt run complete" \
-    || fail "dbt run failed"
+# ── Step 7: dbt run (marts) ──────────────────────────────────────────────────────────────────────
+step "Step 7/8: dbt run (marts) (target=$DBT_TARGET)"
+dbt run --select models/marts --target "$DBT_TARGET" --vars "{run_date: '$DATE'}" \
+    && success "dbt run (marts) complete" \
+    || fail "dbt run (marts) failed"
 
-# ── Step 7: dbt test ─────────────────────────────────────────────────────────────────────────────
-step "Step 7/7: dbt test"
+# ── Step 8: dbt test ─────────────────────────────────────────────────────────────────────────────
+step "Step 8/8: dbt test"
 dbt test --target "$DBT_TARGET" \
     && success "dbt tests passed" \
     || fail "dbt tests failed"

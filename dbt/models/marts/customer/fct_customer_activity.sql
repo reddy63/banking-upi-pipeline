@@ -48,7 +48,7 @@ daily as (
         min(txn_timestamp)                          as first_txn_ts,
         max(txn_timestamp)                          as last_txn_ts,
         -- Time span of activity in minutes
-        extract(epoch from (max(txn_timestamp) - min(txn_timestamp))) / 60
+        datediff(minute, min(txn_timestamp), max(txn_timestamp))
                                                     as activity_span_minutes
     from txns
     group by sender_vpa, txn_date, sender_bank

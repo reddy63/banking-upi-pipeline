@@ -26,7 +26,7 @@ with txns as (
 
 customers as (
     select
-        sender_vpa,
+        customer_vpa as sender_vpa,
         customer_tier,
         total_txns              as customer_lifetime_txns,
         total_spend_inr         as customer_lifetime_spend

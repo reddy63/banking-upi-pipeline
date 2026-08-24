@@ -34,3 +34,9 @@ SNOWFLAKE_ROLE      = os.getenv("SNOWFLAKE_ROLE",      "DATA_ENGINEER")
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+# -- PostgreSQL / BI ---------------------------------------------------------
+POSTGRES_CONN = os.getenv(
+    'POSTGRES_CONN',
+    'postgresql://airflow:airflow@localhost:5432/banking_bi'
+)

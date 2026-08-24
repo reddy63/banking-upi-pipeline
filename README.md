@@ -1,7 +1,7 @@
-# 🏦 Banking UPI Pipeline
+# 🏦 Banking UPI Pipeline (Snowflake-Native ELT)
 
-> **Production-grade Medallion Architecture data pipeline for UPI banking transactions**
-> Built with PySpark · Delta Lake · Apache Airflow · dbt · Snowflake
+> **Production-grade ELT data pipeline for UPI banking transactions**
+> Built with Python · Apache Airflow · Snowflake · dbt
 
 ---
 
@@ -15,60 +15,40 @@
                          │                           │
                          ▼                           ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                      INGESTION LAYER                                         │
+│                      INGESTION LAYER (Python)                                │
 │  ingestion/csv_reader.py            ingestion/api_client.py                  │
 │  · File detection & header norm     · Cursor pagination                      │
 │  · In-file deduplication            · 429 rate-limit backoff                 │
-│  · Parquet output                   · 5xx retry with exponential backoff     │
+│  · Parquet output (ISO-8601 strings)· 5xx retry with exponential backoff     │
 └────────────────────────────────────────┬─────────────────────────────────────┘
                                          │
                                          ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                      RAW LAYER  (Parquet, date-partitioned)                  │
+│                      LOCAL LANDING ZONE (Parquet)                            │
 │  raw/source=csv/date=YYYY-MM-DD/data.parquet                                 │
 │  raw/source=api/date=YYYY-MM-DD/data.parquet                                 │
-│  raw/raw_loader.py  → schema check · row counts · manifest                  │
+│  raw/raw_loader.py  → generates raw manifest (schema & row counts)           │
 └────────────────────────────────────────┬─────────────────────────────────────┘
                                          │
                                          ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                   🥉 BRONZE LAYER  (Delta Lake, append)                      │
-│  delta_lake/bronze/upi_transactions/                                         │
-│  · Schema enforcement (StructType)                                           │
-│  · Metadata: _source_date, _pipeline_run_ts, _source                        │
-│  · Partition: _source_date                                                   │
-│  · DQ validation: 6 checks (null rates, dup rate, VPA format, status vocab)  │
+│                      SNOWFLAKE LOAD LAYER                                    │
+│  warehouse/snowflake_ingest.py                                               │
+│  · Idempotent DELETE of existing _source_date                                │
+│  · PUT Parquet files to Snowflake Internal Stage                             │
+│  · COPY INTO RAW_LAYER.RAW_UPI_TRANSACTIONS                                  │
 └────────────────────────────────────────┬─────────────────────────────────────┘
                                          │
                                          ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                   🥈 SILVER LAYER  (Delta Lake, append)                      │
-│  delta_lake/silver/upi_transactions/                                         │
-│  · Deduplication (keep latest per txn_id)                                   │
-│  · Status normalization → SUCCESS | FAILED | PENDING | REVERSED             │
-│  · Derived: txn_date, txn_hour, is_weekend, is_high_value, is_off_hours     │
-│  · Bank extraction from VPA (sender_bank, receiver_bank)                    │
-│  · Partition: txn_date                                                       │
-└────────────────────────────────────────┬─────────────────────────────────────┘
-                                         │
-                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                   🥇 GOLD LAYER  (Delta Lake, overwrite-by-partition)        │
-│  delta_lake/gold/                                                             │
-│  ├── daily_summary/       (per-date × bank × status × device KPIs)          │
-│  ├── customer_360/        (lifetime per-VPA aggregates)                      │
-│  ├── fraud_signals/       (rule-based fraud signal rows)                     │
-│  └── channel_performance/ (per device_type × bank stats)                    │
-└────────────────────────────────────────┬─────────────────────────────────────┘
-                                         │
-                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                        dbt TRANSFORM LAYER                                   │
+│                      dbt TRANSFORM LAYER (Snowflake)                         │
 │  dbt/models/                                                                 │
 │  ├── staging/                                                                │
-│  │   └── stg_upi_transactions     (view — light cleaning + audit cols)       │
+│  │   └── stg_upi_transactions     (incremental — light cleaning)             │
 │  ├── intermediate/                                                           │
-│  │   └── int_transactions_enriched (ephemeral — size bucket, risk flags)    │
+│  │   └── int_transactions_enriched (ephemeral — risk flags, size buckets)    │
+│  ├── snapshots/                                                              │
+│  │   └── snp_customers             (SCD Type 2 — tracks customer profiles)   │
 │  └── marts/                                                                  │
 │      ├── customer/                                                            │
 │      │   ├── dim_customers         (customer tier, home city, stats)         │
@@ -79,14 +59,6 @@
 │      └── fraud/                                                               │
 │          ├── fct_fraud_signals     (5 rule-based signals per txn)            │
 │          └── fct_fraud_summary     (daily fraud KPIs per signal type)       │
-└────────────────────────────────────────┬─────────────────────────────────────┘
-                                         │
-                                         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                       SNOWFLAKE DATA WAREHOUSE                               │
-│  warehouse/snowflake_loader.py                                                │
-│  · MERGE upsert (no duplicates in target)                                    │
-│  · Clustered by (txn_date, sender_bank)                                     │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 Orchestration: Apache Airflow (dags/banking_pipeline.py)
@@ -102,55 +74,41 @@ Docker: docker/docker-compose.yml (Airflow + Redis + PostgreSQL + mock API)
 ```bash
 git clone <repo>
 cd banking-upi-pipeline
-pip install -r requirements-dev.txt
+bash scripts/setup.sh
 ```
 
-### 2. Generate mock data
+### 2. Configure Environment
+
+Copy `.env.example` to `.env` and fill in your Snowflake credentials:
 
 ```bash
-make generate-data
-# Creates: data/mock_csv/bank_statement_YYYY-MM-DD.csv  (7 days)
-#          data/mock_api/api_seed_data.json
+cp .env.example .env
 ```
 
-### 3. Start the mock API server
+Required variables:
+- `SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_USER`
+- `SNOWFLAKE_PASSWORD`
+- `SNOWFLAKE_ROLE=DATA_ENGINEER`
+- `SNOWFLAKE_DATABASE=BANKING_DW`
+
+### 3. Generate mock data & Start API
 
 ```bash
+python data/mock_data_generator.py
 make start-api
-# FastAPI docs: http://localhost:8000/docs
 ```
 
-### 4. Run the pipeline (for today)
+### 4. Run the complete pipeline
 
 ```bash
-make run-pipeline
-# Runs: ingest-csv → ingest-api → raw-manifest → bronze → silver → gold → dbt
-```
-
-Or step by step:
-
-```bash
-make ingest-csv    DATE=2026-08-23
-make ingest-api    DATE=2026-08-23
-make raw-manifest  DATE=2026-08-23
-make bronze        DATE=2026-08-23
-make silver        DATE=2026-08-23
-make gold          DATE=2026-08-23
-make dbt-run
-make dbt-test
-```
-
-### 5. Run tests
-
-```bash
-make test           # full suite
-make test-unit      # skip PySpark tests (fast)
-make test-cov       # with HTML coverage report
+# Runs Python ingest → Snowflake COPY INTO → dbt run → dbt snapshot → dbt test
+bash scripts/run_pipeline.sh 2026-08-23
 ```
 
 ---
 
-## 🐳 Docker (Full Stack)
+## 🐳 Docker Airflow (Full Stack)
 
 ```bash
 make docker-up
@@ -158,8 +116,9 @@ make docker-up
 # Mock API:     http://localhost:8000/docs
 ```
 
+To shut down:
 ```bash
-make docker-down   # stop & remove volumes
+make docker-down
 ```
 
 ---
@@ -176,84 +135,29 @@ banking-upi-pipeline/
 │   └── api_client.py            ← Source 2: Paginated REST API client
 ├── raw/
 │   └── raw_loader.py            ← Landing zone scanner & manifest
-├── spark/
-│   ├── bronze/bronze_processor.py    ← Raw → Bronze Delta
-│   ├── silver/silver_processor.py    ← Bronze → Silver Delta
-│   ├── gold/gold_processor.py        ← Silver → Gold Delta
-│   └── validation/data_quality.py   ← 6 DQ checks on Bronze
 ├── dbt/
 │   ├── dbt_project.yml
-│   ├── profiles.yml             ← dev (DuckDB) + ci/prod (Snowflake)
-│   ├── macros/                  ← generate_schema_name, audit_columns, safe_divide
-│   ├── tests/generic/           ← assert_positive custom test
-│   └── models/
-│       ├── staging/             ← stg_upi_transactions (view)
-│       ├── intermediate/        ← int_transactions_enriched (ephemeral)
-│       └── marts/
-│           ├── customer/        ← dim_customers, fct_customer_activity
-│           ├── transaction/     ← fct_transactions, fct_daily_summary
-│           └── fraud/           ← fct_fraud_signals, fct_fraud_summary
+│   ├── profiles.yml             ← Snowflake configuration
+│   ├── macros/                  ← Custom generic tests & utilities
+│   ├── snapshots/               ← SCD Type 2 definitions
+│   └── models/                  ← SQL transform models
 ├── warehouse/
-│   └── snowflake_loader.py      ← Silver → Snowflake (MERGE upsert)
+│   └── snowflake_ingest.py      ← Raw → Snowflake (PUT + COPY INTO)
 ├── dags/
 │   └── banking_pipeline.py      ← Airflow DAG (full orchestration)
 ├── docker/
 │   ├── docker-compose.yml       ← Airflow + Redis + Postgres + mock API
-│   └── Dockerfile.airflow       ← Custom Airflow image with Java + PySpark
-├── tests/
-│   ├── conftest.py              ← Shared fixtures
-│   ├── test_csv_reader.py
-│   ├── test_api_client.py
-│   ├── test_bronze_processor.py
-│   ├── test_silver_processor.py
-│   └── test_data_quality.py
+│   └── Dockerfile.airflow       ← Custom Airflow image
 ├── data/
 │   ├── mock_data_generator.py   ← Generate CSV + API seed data
 │   └── mock_api_server.py       ← FastAPI mock UPI transaction server
-├── requirements.txt
-├── requirements-dev.txt
-├── setup.py
+├── scripts/
+│   ├── setup.sh                 ← Python venv setup
+│   └── run_pipeline.sh          ← End-to-end execution script
 ├── .env.example
 ├── Makefile
 └── README.md
 ```
-
----
-
-## ⚙️ Configuration
-
-Copy `.env.example` to `.env` and fill in your values:
-
-```bash
-cp .env.example .env
-```
-
-Key variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MOCK_API_BASE_URL` | `http://localhost:8000` | Mock API server URL |
-| `MOCK_API_KEY` | `dev-api-key-123` | API Bearer token |
-| `SPARK_MASTER` | `local[*]` | Spark master URL |
-| `SNOWFLAKE_ACCOUNT` | `your_account` | Snowflake account identifier |
-| `DBT_TARGET` | `dev` | dbt target (dev/ci/prod) |
-
----
-
-## 🧪 Data Quality Checks
-
-The Bronze validation layer runs **6 checks** before Silver processing:
-
-| Check | Threshold | Severity |
-|-------|-----------|----------|
-| `txn_id_null_rate` | = 0% | 🔴 CRITICAL |
-| `amount_null_rate` | ≤ 1% | 🔴 CRITICAL |
-| `txn_id_duplicate_rate` | ≤ 2% | 🟡 WARNING |
-| `amount_range` | ≤ 0.5% out of [₹0.01, ₹10L] | 🟡 WARNING |
-| `valid_status_values` | ≤ 1% unknown | 🟡 WARNING |
-| `sender_vpa_format` | ≤ 2% invalid VPA | 🟡 WARNING |
-
-CRITICAL failures **stop the DAG** immediately.
 
 ---
 
@@ -280,19 +184,17 @@ start
                           ▼
                     raw_manifest ── (fails if schema drift)
                           │
-                    bronze_processing
+                  snowflake_ingest ── (idempotent COPY INTO)
                           │
-                    data_quality ── (fails DAG on CRITICAL errors)
+                    dbt_run_prep ── (staging & intermediate)
                           │
-                    silver_processing
+                    dbt_snapshot ── (SCD Type 2 customers)
                           │
-                    gold_processing
+                    dbt_run_marts ── (fact & dimension tables)
                           │
-                    dbt_run → dbt_test
+                       dbt_test ── (45+ data quality checks)
                           │
-                    snowflake_load
-                          │
-                    pipeline_summary
+                   pipeline_summary
                           │
                          end
 ```
@@ -301,59 +203,14 @@ Schedule: **Daily at 02:00 UTC**
 
 ---
 
-## 📊 dbt Lineage
-
-```
-stg_upi_transactions (view)
-  └── int_transactions_enriched (ephemeral)
-        ├── dim_customers (table)
-        ├── fct_customer_activity (table)
-        ├── fct_transactions (table)
-        ├── fct_daily_summary (table)
-        ├── fct_fraud_signals (table)
-        └── fct_fraud_summary (table)
-              └── stg_upi_transactions (ref)
-```
-
----
-
-## 🛠️ Makefile Reference
-
-| Target | Description |
-|--------|-------------|
-| `make install` | Install production deps |
-| `make install-dev` | Install dev+test deps |
-| `make generate-data` | Generate mock CSV + API data |
-| `make start-api` | Start mock FastAPI server |
-| `make run-pipeline DATE=YYYY-MM-DD` | Full end-to-end pipeline |
-| `make bronze DATE=...` | Run Bronze processor |
-| `make silver DATE=...` | Run Silver processor |
-| `make gold DATE=...` | Run Gold processor |
-| `make dbt-run` | Run all dbt models |
-| `make dbt-test` | Run dbt tests |
-| `make dbt-docs` | Serve dbt docs on :8080 |
-| `make test` | Run pytest suite |
-| `make test-cov` | Run tests with coverage |
-| `make lint` | Ruff linter |
-| `make format` | Black formatter |
-| `make docker-up` | Start Docker stack |
-| `make docker-down` | Stop Docker stack |
-| `make clean` | Remove artifacts |
-
----
-
 ## 🏗️ Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Ingestion | Python, Pandas, Requests |
-| Storage | Apache Parquet, Delta Lake |
-| Processing | Apache Spark (PySpark) 3.5 |
+| Storage | Apache Parquet |
+| Data Warehouse | Snowflake |
 | Orchestration | Apache Airflow 2.9 |
 | Transformation | dbt-core 1.8 |
-| Dev DB | DuckDB |
-| Production DW | Snowflake |
 | API Mock | FastAPI + Uvicorn |
 | Containerization | Docker + Docker Compose |
-| Testing | pytest + pytest-mock |
-| Linting | ruff + black |
