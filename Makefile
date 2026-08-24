@@ -10,7 +10,6 @@ DBT_TARGET ?= dev
 .PHONY: help install install-dev generate-data start-api \
         ingest-csv ingest-api raw-manifest \
         dbt-run dbt-test dbt-docs \
-        test test-unit test-cov lint format \
         docker-up docker-down clean
 
 ## ── Help ──────────────────────────────────────────────────────────────────────
@@ -35,14 +34,6 @@ help:
 	@echo "    dbt-run          Run all dbt models"
 	@echo "    dbt-test         Run all dbt tests"
 	@echo "    dbt-docs         Generate & serve dbt docs"
-	@echo ""
-	@echo "  Testing"
-	@echo "    test             Run full pytest suite"
-	@echo "    test-cov         Run tests with coverage report"
-	@echo ""
-	@echo "  Code Quality"
-	@echo "    lint             Run ruff linter"
-	@echo "    format           Format with black"
 	@echo ""
 	@echo "  Docker"
 	@echo "    docker-up        Start all services (Airflow + mock API)"
@@ -90,22 +81,6 @@ dbt-test:
 dbt-docs:
 	cd dbt && dbt docs generate --target $(DBT_TARGET) --profiles-dir . && \
 	          dbt docs serve --profiles-dir . --port 8080
-
-## ── Testing ──────────────────────────────────────────────────────────────────
-test:
-	$(PYTEST) tests/ -v --tb=short
-
-
-
-test-cov:
-	$(PYTEST) tests/ --cov=. --cov-report=term-missing --cov-report=html \
-	          --cov-omit="data/*,docker/*,dbt/*,dags/*"
-
-lint:
-	ruff check ingestion/ raw/ warehouse/ config/ tests/
-
-format:
-	black ingestion/ raw/ warehouse/ config/ tests/ dags/
 
 ## ── Docker ────────────────────────────────────────────────────────────────────
 docker-up:

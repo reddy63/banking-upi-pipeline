@@ -17,8 +17,6 @@ setup(
     ],
     extras_require={
         "dev": [
-            "pytest>=7.4.0",
-            "pytest-mock>=3.11.1",
             "black>=23.7.0",
             "ruff>=0.0.285",
         ],
