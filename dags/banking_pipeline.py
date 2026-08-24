@@ -135,7 +135,7 @@ def _pipeline_summary(**context):
 ╔══════════════════════════════════════════════════════╗
 ║         Banking UPI Pipeline Summary — {date}         ║
 ╚══════════════════════════════════════════════════════╝
-  Raw total rows  : {manifest.get('total_rows', 'N/A'):,}
+  Raw total rows  : {manifest.get('total_rows', 'N/A')}
   Snowflake rows  : {snowflake_rows or 'N/A'}
   CSV landing     : {csv_path}
   API landing     : {api_path}
