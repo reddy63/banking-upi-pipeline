@@ -8,13 +8,13 @@
 #   bash scripts/run_pipeline.sh --skip-ingest    # skip ingestion, re-run from Snowflake load
 #   bash scripts/run_pipeline.sh --dbt-only       # only run dbt (staging already loaded)
 #
-# Architecture (ELT, Snowflake-native):
 #   1. csv_reader     → raw/source=csv/date=DATE/data.parquet
 #   2. api_client     → raw/source=api/date=DATE/data.parquet
 #   3. raw_loader     → validates manifest (schema + row counts)
 #   4. snowflake_ingest → DELETE + PUT + COPY INTO (idempotent)
-#   5. dbt run        → incremental staging, SCD2, fraud scoring, marts
-#   6. dbt test       → schema + singular DQ assertions
+#   5. dbt snapshot   → SCD2 snapshots
+#   6. dbt run        → incremental staging, fraud scoring, marts
+#   7. dbt test       → schema + singular DQ assertions
 # =============================================================================
 set -euo pipefail
 
@@ -80,26 +80,26 @@ info "================================================"
 
 # ── Step 1: CSV ingestion ────────────────────────────────────────────────────────────────
 if [ "$SKIP_INGEST" = false ]; then
-    step "Step 1/6: CSV ingestion"
+    step "Step 1/7: CSV ingestion"
     $PYTHON -m ingestion.csv_reader "$DATE" \
         && success "CSV ingestion done" \
         || fail "CSV ingestion failed"
 else
-    warn "Step 1/6: CSV ingestion SKIPPED"
+    warn "Step 1/7: CSV ingestion SKIPPED"
 fi
 
 # ── Step 2: API ingestion ─────────────────────────────────────────────────────────────────
 if [ "$SKIP_INGEST" = false ]; then
-    step "Step 2/6: API ingestion"
+    step "Step 2/7: API ingestion"
     $PYTHON -m ingestion.api_client "$DATE" \
         && success "API ingestion done" \
         || fail "API ingestion failed"
 else
-    warn "Step 2/6: API ingestion SKIPPED"
+    warn "Step 2/7: API ingestion SKIPPED"
 fi
 
 # ── Step 3: Raw manifest validation ──────────────────────────────────────────────────────
-step "Step 3/6: Raw landing zone manifest"
+step "Step 3/7: Raw landing zone manifest"
 $PYTHON -c "
 import sys
 sys.path.insert(0, '.')
@@ -118,24 +118,30 @@ loader.save_manifest('$DATE')
 
 # ── Step 4: Snowflake idempotent load ──────────────────────────────────────────────────────
 if [ "$SKIP_SNOWFLAKE" = false ]; then
-    step "Step 4/6: Snowflake load (DELETE + PUT + COPY INTO)"
+    step "Step 4/7: Snowflake load (DELETE + PUT + COPY INTO)"
     $PYTHON warehouse/snowflake_ingest.py "$DATE" \
         && success "Snowflake load done" \
         || fail "Snowflake load failed"
 else
-    warn "Step 4/6: Snowflake load SKIPPED"
+    warn "Step 4/7: Snowflake load SKIPPED"
 fi
 
-# ── Step 5: dbt run ──────────────────────────────────────────────────────────────────────────────
+# ── Step 5: dbt snapshot ─────────────────────────────────────────────────────────────────────────
 DBT_TARGET="${DBT_TARGET:-prod}"
-step "Step 5/6: dbt run (target=$DBT_TARGET)"
+step "Step 5/7: dbt snapshot (target=$DBT_TARGET)"
 cd dbt
+dbt snapshot --target "$DBT_TARGET" \
+    && success "dbt snapshot complete" \
+    || fail "dbt snapshot failed"
+
+# ── Step 6: dbt run ──────────────────────────────────────────────────────────────────────────────
+step "Step 6/7: dbt run (target=$DBT_TARGET)"
 dbt run --target "$DBT_TARGET" --vars "{run_date: '$DATE'}" \
     && success "dbt run complete" \
     || fail "dbt run failed"
 
-# ── Step 6: dbt test ─────────────────────────────────────────────────────────────────────────────
-step "Step 6/6: dbt test"
+# ── Step 7: dbt test ─────────────────────────────────────────────────────────────────────────────
+step "Step 7/7: dbt test"
 dbt test --target "$DBT_TARGET" \
     && success "dbt tests passed" \
     || fail "dbt tests failed"

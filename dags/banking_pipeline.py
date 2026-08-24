@@ -190,6 +190,16 @@ with DAG(
         doc_md          = "Load Raw Parquet directly into Snowflake via COPY INTO",
     )
 
+    # ── dbt snapshot ──────────────────────────────────────────────────────────
+    dbt_snapshot = BashOperator(
+        task_id      = "dbt_snapshot",
+        bash_command = (
+            f"cd {DBT_DIR} && "
+            f"dbt snapshot --target {DBT_TARGET} --profiles-dir {DBT_DIR}"
+        ),
+        doc_md       = "Run SCD Type 2 snapshots for customers",
+    )
+
     # ── dbt run ────────────────────────────────────────────────────────────────
     dbt_run = BashOperator(
         task_id      = "dbt_run",
@@ -224,5 +234,5 @@ with DAG(
 
     # ── Task dependencies ─────────────────────────────────────────────────────
     start >> [ingest_csv, ingest_api] >> raw_manifest
-    raw_manifest >> snowflake_ingest >> dbt_run >> dbt_test
+    raw_manifest >> snowflake_ingest >> dbt_snapshot >> dbt_run >> dbt_test
     dbt_test >> pipeline_summary >> end

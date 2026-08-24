@@ -1,10 +1,10 @@
 # Banking UPI Pipeline — Makefile
 # Convenience commands for local development
 
-PYTHON     := python3
-PIP        := pip3
+PYTHON     := $(shell which python3)
+PIP        := $(shell which pip3)
 DATE       ?= $(shell date -u +%Y-%m-%d)
-PYTEST     := pytest
+PYTEST     := $(PYTHON) -m pytest
 DBT_TARGET ?= dev
 
 .PHONY: help install install-dev generate-data start-api \
