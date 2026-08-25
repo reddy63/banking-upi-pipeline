@@ -2,17 +2,18 @@
 #  Banking UPI Pipeline — Docker Compose
 #
 #  Services:
-#    postgres         — Airflow metadata DB
-#    redis            — Celery broker (for CeleryExecutor)
-#    airflow-webserver
-#    airflow-scheduler
-#    airflow-worker   (Celery)
-#    airflow-init     — DB init + user creation (runs once)
-#    mock-api         — FastAPI mock UPI transaction server
+#    postgres          — Airflow metadata DB
+#    airflow-init      — DB init + admin user creation (runs once, then exits)
+#    airflow-webserver — Airflow UI on port 8080
+#    airflow-scheduler — Airflow task scheduler (LocalExecutor)
+#    mock-api          — FastAPI mock UPI transaction server on port 8000
 #
 #  Usage:
-#    docker compose up --build -d
-#    docker compose down -v          # tear down including volumes
+#    cd docker && docker compose up --build -d
+#    cd docker && docker compose down        # stop (keep volumes)
+#    cd docker && docker compose down -v     # tear down + delete volumes
+#
+#  Credentials loaded from ../.env (never commit .env to git)
 ##############################################################################
 
 
@@ -41,6 +42,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.airflow
     image: banking-upi-airflow:latest
+    env_file: ../.env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -54,13 +56,6 @@ services:
       MOCK_API_BASE_URL: http://mock-api:8000
       MOCK_API_KEY: dev-api-key-123
       LOG_LEVEL: INFO
-      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-your_account}
-      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-pipeline_user}
-      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
-      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
-      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-BANKING_DW}
-      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-RAW_LAYER}
-      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-DATA_ENGINEER}
     volumes:
       - ..:/opt/banking-upi-pipeline
       - ./airflow-logs:/opt/airflow/logs
@@ -90,6 +85,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.airflow
     image: banking-upi-airflow:latest
+    env_file: ../.env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -103,13 +99,6 @@ services:
       MOCK_API_BASE_URL: http://mock-api:8000
       MOCK_API_KEY: dev-api-key-123
       LOG_LEVEL: INFO
-      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-your_account}
-      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-pipeline_user}
-      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
-      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
-      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-BANKING_DW}
-      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-RAW_LAYER}
-      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-DATA_ENGINEER}
     volumes:
       - ..:/opt/banking-upi-pipeline
       - ./airflow-logs:/opt/airflow/logs
@@ -137,6 +126,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.airflow
     image: banking-upi-airflow:latest
+    env_file: ../.env
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -150,13 +140,6 @@ services:
       MOCK_API_BASE_URL: http://mock-api:8000
       MOCK_API_KEY: dev-api-key-123
       LOG_LEVEL: INFO
-      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-your_account}
-      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-pipeline_user}
-      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
-      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
-      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-BANKING_DW}
-      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-RAW_LAYER}
-      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-DATA_ENGINEER}
     volumes:
       - ..:/opt/banking-upi-pipeline
       - ./airflow-logs:/opt/airflow/logs

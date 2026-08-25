@@ -112,6 +112,6 @@ def generate_api_seed(output_dir: Path, days: int = 7, rows_per_day: int = 300):
 if __name__ == "__main__":
     base = Path(__file__).parent
     print("Generating mock data...")
-    generate_csv_dumps(base / "mock_csv", days=7, rows_per_day=500)
-    generate_api_seed(base / "mock_api", days=7, rows_per_day=300)
+    generate_csv_dumps(base / "mock_csv", days=24, rows_per_day=500)
+    generate_api_seed(base / "mock_api", days=24, rows_per_day=300)
     print("Done. Mock data ready in data/mock_csv/ and data/mock_api/")
