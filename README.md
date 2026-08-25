@@ -152,6 +152,7 @@ _SOURCE_DATE : 2026-08-23
 | Schema | Table | Rows | Description |
 |---|---|---|---|
 | `STAGING` | `STG_UPI_TRANSACTIONS` | 500 | Cleaned, deduplicated staging (incremental) |
+| `INTERMEDIATE` | `INT_TRANSACTIONS_ENRICHED` | 500 | Risk flags, velocity ranks, and time attributes added to staging |
 | `INTERMEDIATE` | `INT_CUSTOMERS_CURRENT` | 500 | Latest customer profile + transaction stats |
 | `SNAPSHOTS` | `SNP_CUSTOMERS` | 500 | SCD Type 2 — tracks tier/city/device changes |
 | `MART_TRANSACTION` | `FCT_TRANSACTIONS` | 500 | Enriched fact — 1 row per transaction |
