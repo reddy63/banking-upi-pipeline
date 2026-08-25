@@ -163,6 +163,24 @@ _SOURCE_DATE : 2026-08-23
 | `MART_FRAUD` | `FCT_FRAUD_SCORES` | 16 | Composite risk score + FRAUD_RISK_TIER |
 | `MART_FRAUD` | `FCT_FRAUD_SUMMARY` | 1 | Executive fraud KPI (flagged vs. clean) |
 
+**Sample `STG_UPI_TRANSACTIONS` row:**
+```
+TXN_ID               : 10f98f97-2c8b-4114-a5ff-766221eb9c8a
+UPI_REF              : UPI378216697015
+SENDER_VPA           : anita627@paytm
+RECEIVER_VPA         : rahul353@oksbi
+AMOUNT_INR           : 3322.03
+CURRENCY             : INR
+STATUS               : SUCCESS
+TXN_DATE             : 2026-08-23
+IS_WEEKEND           : True
+IS_HIGH_VALUE        : False
+SENDER_BANK          : paytm
+DEVICE_TYPE          : ANDROID
+IP_ADDRESS           : 147.19.6.247
+CITY                 : Hyderabad
+```
+
 **Sample `FCT_TRANSACTIONS` row:**
 ```
 TXN_ID         : ea68d682-b657-4c62-b1ae-2b2bb9a14fc4
@@ -180,6 +198,76 @@ DEVICE_TYPE    : iOS
 CITY           : Hyderabad
 ```
 
+**Sample `FCT_DAILY_SUMMARY` row:**
+```
+TXN_DATE             : 2026-08-23
+SENDER_BANK          : upi
+RECEIVER_BANK        : okaxis
+STATUS               : FAILED
+DEVICE_TYPE          : WEB
+TXN_COUNT            : 1
+TOTAL_AMOUNT_INR     : 276.31
+AVG_AMOUNT_INR       : 276.31000000
+CROSS_BANK_COUNT     : 1
+SUCCESS_RATE         : 0.0
+FAILURE_RATE         : 1.0
+RISK_RATE            : 0.0
+```
+
+**Sample `FCT_CUSTOMER_ACTIVITY` row:**
+```
+SENDER_VPA           : vikas499@paytm
+TXN_DATE             : 2026-08-23
+SENDER_BANK          : paytm
+DAILY_TXN_COUNT      : 1
+DAILY_TOTAL_INR      : 171063.63
+DAILY_AVG_INR        : 171063.63000000
+DAILY_UNIQUE_PAYEES  : 1
+SUCCESS_COUNT        : 1
+HIGH_VALUE_COUNT     : 1
+DAILY_SUCCESS_RATE   : 1.0
+DAILY_RISK_SCORE     : 0.0
+```
+
+**Sample `DIM_CUSTOMERS` row:**
+```
+CUSTOMER_VPA         : pooja65@okaxis
+PRIMARY_BANK         : okaxis
+FIRST_TXN_DATE       : 2026-08-23
+LAST_TXN_DATE        : 2026-08-23
+TOTAL_TXNS           : 1
+TOTAL_SPEND_INR      : 4021.23
+CUSTOMER_TIER        : BRONZE
+HOME_CITY            : Pune
+PRIMARY_DEVICE_TYPE  : WEB
+SUCCESS_RATE         : 1.0
+IS_CURRENT           : True
+```
+
+**Sample `SNP_CUSTOMERS` (SCD Type 2 snapshot) row:**
+```
+SENDER_VPA           : pooja65@okaxis
+CUSTOMER_TIER        : BRONZE
+HOME_CITY            : Pune
+PRIMARY_DEVICE_TYPE  : WEB
+DBT_SCD_ID           : f1e32f8737af144eedd5b04e08e1cafa
+DBT_UPDATED_AT       : 2026-08-24 08:37:50.298000
+DBT_VALID_FROM       : 2026-08-24 08:37:50.298000
+DBT_VALID_TO         : None
+```
+
+**Sample `FCT_FRAUD_SIGNALS` row:**
+```
+TXN_ID               : 322567f7-5f10-4a54-8442-4a6b214ff252
+SENDER_VPA           : anita270@upi
+TXN_DATE             : 2026-08-23
+AMOUNT_INR           : 193760.05
+SIGNAL_TYPE          : CROSS_BANK_HIGH_VALUE
+SIGNAL_SCORE         : 0.60
+SIGNAL_REASON        : High-value cross-bank transfer
+CAPPED_SCORE         : 0.60
+```
+
 **Sample `FCT_FRAUD_SCORES` row:**
 ```
 TXN_ID            : d1a36661-7c89-4961-921a-100a650e4dc9
@@ -188,6 +276,18 @@ FRAUD_SCORE       : 0.60
 SIGNALS_TRIGGERED : 1
 TRIGGERED_RULES   : ["CROSS_BANK_HIGH_VALUE"]
 FRAUD_RISK_TIER   : HIGH
+```
+
+**Sample `FCT_FRAUD_SUMMARY` row:**
+```
+TXN_DATE             : 2026-08-23
+SIGNAL_TYPE          : CROSS_BANK_HIGH_VALUE
+FLAGGED_TXN_COUNT    : 16
+UNIQUE_FLAGGED_SENDERS : 16
+TOTAL_FLAGGED_AMOUNT_INR : 1986952.08
+AVG_SIGNAL_SCORE     : 0.60000000
+DAY_TOTAL_TXNS       : 500
+SIGNAL_RATE          : 0.032
 ```
 
 ---
